@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Carte d'Identité</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            text-align: center;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        label {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #results {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            text-align: left;
+            background-color: #f9f9f9;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+        .confidence {
+            font-weight: bold;
+            color: #007BFF;
+        }
+		input[type="text"], input[type="date"] {
+            width: 50%;
+            padding: 5px;
+            margin: 5px 0;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test API Carte d'Identité</h1>
+        <input type="file" id="fileInput" accept="image/*">
+        <label for="fileInput">Choisir une image</label><br><br>
+        <input type="text" id="nom" placeholder="Nom"><br>
+        <input type="text" id="prenom" placeholder="Prénom"><br>
+        <input type="text" id="date_naissance" placeholder="Date de Naissance"><br><br>
+        <button onclick="detect()">Détecter Carte d'Identité</button>
+        <button onclick="read()">Lire Informations</button>
+        <button onclick="compare()">Comparer Informations</button>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let selectedFile;
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            selectedFile = event.target.files[0];
+        });
+
+        function detect() {
+            if (!selectedFile) {
+                alert("Veuillez choisir une image d'abord.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            fetch('http://127.0.0.1:5000/detect', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('results');
+                if (data.error) {
+                    resultsDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <p>${data.result}</p>
+                        <p class="confidence">Précision: ${data.confidence || 'N/A'}</p>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur est survenue lors de la détection.');
+            });
+        }
+
+        function read() {
+            if (!selectedFile) {
+                alert("Veuillez choisir une image d'abord.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            fetch('http://127.0.0.1:5000/read', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('results');
+                if (data.error) {
+                    resultsDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <pre>${data.result}</pre>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur est survenue lors de la lecture des informations.');
+            });
+        }
+
+        function compare() {
+            if (!selectedFile) {
+                alert("Veuillez choisir une image d'abord.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+            formData.append('nom', document.getElementById('nom').value);
+            formData.append('prenom', document.getElementById('prenom').value);
+            formData.append('date_naissance', document.getElementById('date_naissance').value);
+
+            fetch('http://127.0.0.1:5000/compare', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('results');
+                if (data.error) {
+                    resultsDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <p>Nom trouvé: ${data.nom_found ? 'Oui' : 'Non'}</p>
+                        <p>Prénom trouvé: ${data.prenom_found ? 'Oui' : 'Non'}</p>
+                        <p>Date de naissance trouvée: ${data.date_naissance_found ? 'Oui' : 'Non'}</p>
+                        <pre>${data.text}</pre>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur est survenue lors de la comparaison des informations.');
+            });
+        }
+    </script>
+</body>
+</html>

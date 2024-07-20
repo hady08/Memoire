@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Carte d'Identité</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            text-align: center;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        label {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #results {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            text-align: left;
+            background-color: #f9f9f9;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+        .confidence {
+            font-weight: bold;
+            color: #007BFF;
+        }
+        input[type="text"], input[type="date"] {
+            width: 100%;
+            padding: 5px;
+            margin: 5px 0;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test API Carte d'Identité</h1>
+        <input type="file" id="fileInput" accept="image/*">
+        <label for="fileInput">Choisir une image</label>
+        <button onclick="detect()">Détecter Carte d'Identité</button>
+        <button onclick="read()">Lire Informations</button>
+        <div>
+            <h2>Formulaire de vérification</h2>
+            <input type="text" id="name" placeholder="Nom"><br>
+            <input type="text" id="surname" placeholder="Prénom"><br>
+            <input type="date" id="birth_date" placeholder="Date de naissance"><br>
+            <button onclick="verify()">Vérifier Informations</button>
+        </div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let selectedFile;
+        let extractedText;
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            selectedFile = event.target.files[0];
+        });
+
+        function detect() {
+            if (!selectedFile) {
+                alert("Veuillez choisir une image d'abord.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            fetch('http://127.0.0.1:5000/detect', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('results');
+                if (data.error) {
+                    resultsDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <p>${data.result}</p>
+                        <p class="confidence">Précision: ${data.confidence || 'N/A'}</p>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur est survenue lors de la détection.');
+            });
+        }
+
+        function read() {
+            if (!selectedFile) {
+                alert("Veuillez choisir une image d'abord.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            fetch('http://127.0.0.1:5000/read', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('results');
+                if (data.error) {
+                    resultsDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
+                } else {
+                    extractedText = data.result;
+                    resultsDiv.innerHTML = `
+                        <pre>${data.result}</pre>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur est survenue lors de la lecture des informations.');
+            });
+        }
+
+        function verify() {
+            const name = document.getElementById('name').value;
+            const surname = document.getElementById('surname').value;
+            const birth_date = document.getElementById('birth_date').value;
+
+            if (!extractedText) {
+                alert("Veuillez d'abord lire les informations de la carte.");
+                return;
+            }
+
+            const data = {
+                text_extracted: extractedText,
+                name: name,
+                surname: surname,
+                birth_date: birth_date
+            };
+
+            console.log('Sending verification request with data:', data);
+
+            fetch('http://127.0.0.1:5000/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    const resultsDiv = document.getElementById('results');
+                    resultsDiv.innerHTML = `
+                        <h3>Résultats de la vérification</h3>
+                        <p>Nom: ${data.input_data.name} - Correspondance: ${(data.name_similarity * 100).toFixed(2)}%</p>
+                        <p>Prénom: ${data.input_data.surname} - Correspondance: ${(data.surname_similarity * 100).toFixed(2)}%</p>
+                        <p>Date de naissance: ${data.input_data.birth_date} - Correspondance: ${(data.birth_date_similarity * 100).toFixed(2)}%</p>
+                        <h3>Informations extraites</h3>
+                        <pre>${data.extracted_text}</pre>
+                    `;
+                    alert(`Nom: ${data.input_data.name} - Correspondance: ${(data.name_similarity * 100).toFixed(2)}%
+Prénom: ${data.input_data.surname} - Correspondance: ${(data.surname_similarity * 100).toFixed(2)}%
+Date de naissance: ${data.input_data.birth_date} - Correspondance: ${(data.birth_date_similarity * 100).toFixed(2)}%`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(`Une erreur est survenue lors de la vérification des informations: ${error}`);
+            });
+        }
+    </script>
+</body>
+</html>
